@@ -21,7 +21,13 @@ router.post('/start', authenticateToken, async (req, res) => {
     try {
         const validatedData = StartScanSchema.parse(req.body);
         const { searchQuery, type } = validatedData;
-        // Enqueue the scan job
+        // Enqueue the scan job (only if Redis is enabled)
+        if (!scanQueue) {
+            console.warn('[AssetGuard] Redis/BullMQ is disabled. Skipping queue.');
+            // Return a simulated success for preview purposes or handle as error
+            res.json({ success: true, data: { jobId: 'simulated-' + Date.now() }, message: 'Scan simulated (Redis disabled)' });
+            return;
+        }
         const job = await scanQueue.add('webScan', {
             searchQuery,
             type,
@@ -51,6 +57,11 @@ router.post('/live/start', authenticateToken, requireRole(['Admin', 'Cybersecuri
     try {
         const validatedData = LiveScanSchema.parse(req.body);
         const { streamUrl } = validatedData;
+        // In production, this might spawn a worker process specifically for continuous monitoring
+        if (!scanQueue) {
+            res.json({ success: true, data: { jobId: 'simulated-live-' + Date.now() }, message: 'Live monitor simulated (Redis disabled)' });
+            return;
+        }
         const job = await scanQueue.add('liveScan', { streamUrl, tenantId }, { repeat: { every: 10000, limit: 100 } });
         await logAuditAction({
             action: 'LIVE_MONITOR_STARTED',

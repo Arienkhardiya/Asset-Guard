@@ -36,7 +36,11 @@ async function startServer() {
     });
     setupSocket(io);
     app.set('trust proxy', 1);
-    // Security Middleware
+    // API Logging Middleware
+    app.use((req, res, next) => {
+        console.log(`[API CALL] ${req.method} ${req.url}`);
+        next();
+    });
     app.use(helmet({
         contentSecurityPolicy: false,
     }));
@@ -45,10 +49,10 @@ async function startServer() {
     // Rate Limiting
     const apiLimiter = rateLimit({
         windowMs: 15 * 60 * 1000,
-        max: 100,
+        max: 1000, // Increased for stability
         standardHeaders: true,
         legacyHeaders: false,
-        message: { error: 'Too many requests, please try again later.' },
+        message: { success: false, error: 'Too many requests, please try again later.' },
         validate: { xForwardedForHeader: false }
     });
     app.use('/api/', apiLimiter);
