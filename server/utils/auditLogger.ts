@@ -1,4 +1,4 @@
-import { adminDb } from '../config/firebase.js';
+import { query } from '../db/index.js';
 import logger from './logger.js';
 
 interface AuditLog {
@@ -6,18 +6,16 @@ interface AuditLog {
   userId: string;
   tenantId: string;
   role: string;
-  details?: Record<string, any>;
+  details?: string | Record<string, any>;
 }
 
 export const logAuditAction = async (data: AuditLog) => {
   try {
-    if (!adminDb) return;
-    
-    await adminDb.collection('audit_logs').add({
-      ...data,
-      timestamp: new Date().toISOString()
-    });
+    await query(
+      'INSERT INTO audit_logs (action, user_id, tenant_id, role, details) VALUES ($1, $2, $3, $4, $5)',
+      [data.action, data.userId, data.tenantId, data.role, typeof data.details === 'string' ? data.details : JSON.stringify(data.details)]
+    );
   } catch (error) {
-    logger.error('Failed to write audit log to Firestore:', { error });
+    logger.error('Failed to write audit log to Postgres:', { error });
   }
 };

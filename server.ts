@@ -6,6 +6,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import authRoutes from './server/routes/auth.js';
 import scanRoutes from './server/routes/scan.js';
@@ -69,12 +70,17 @@ async function startServer() {
   app.use('/api/audit', auditRoutes);
   
   // Health check
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', service: 'AssetGuard AI' });
+  });
+
   app.get('/health', (req, res) => {
     res.status(200).send("AssetGuard Backend Running 🚀");
   });
 
   // Serve Frontend Static Files
-  const distPath = path.join(__dirname, 'dist');
+  // In development (tsx), __dirname is root. In production (dist-server), __dirname is dist-server.
+  const distPath = path.join(__dirname, fs.existsSync(path.join(__dirname, 'dist')) ? 'dist' : '../dist');
   app.use(express.static(distPath));
 
   // Catch-all for SPA
