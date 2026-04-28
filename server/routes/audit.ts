@@ -15,7 +15,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
     }
     res.json({ success: true, data: result.rows });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -29,7 +29,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
     );
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

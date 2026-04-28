@@ -32,10 +32,10 @@ router.post('/takedown', authenticateToken, requireRole(['Admin', 'Legal Analyst
     res.json({ success: true, data: result, message: 'Takedown initiated' });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, data: null, message: 'Validation error', error: (error as any).errors });
+      res.status(400).json({ success: false, error: 'Validation error', details: (error as any).errors });
       return;
     }
-    res.status(500).json({ success: false, data: null, message: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -48,19 +48,16 @@ router.get('/analytics', authenticateToken, async (req: AuthRequest, res) => {
     const totalQuery = await query('SELECT COUNT(*) FROM detections WHERE tenant_id = $1', [tenantId]);
     const terminatedQuery = await query("SELECT COUNT(*) FROM detections WHERE tenant_id = $1 AND status = 'TERMINATED'", [tenantId]);
     
-    // Fallback logic for realistic data presentation in early preview/testing
-    // Returns counts cleanly
     res.json({
       success: true,
       data: {
         totalDetections: parseInt(totalQuery.rows[0]?.count || '120'),
         takedownsExecuted: parseInt(terminatedQuery.rows[0]?.count || '5'),
         estimatedTrafficSaved: parseInt(terminatedQuery.rows[0]?.count || '5') * 5000 
-      },
-      message: 'Analytics fetched'
+      }
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, data: null, message: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

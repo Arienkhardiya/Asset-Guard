@@ -1,27 +1,27 @@
-// Database connection placeholder
-import { Pool } from 'pg';
+import pg from 'pg';
+const { Pool } = pg;
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Note: In a real environment, provide PG_URI or POSTGRES_URL in .env
-// We mock connection behavior if env vars are missing to allow preview to run without crashing.
+const dbUrl = process.env.DATABASE_URL;
 
-const dbUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/assetguard';
+if (!dbUrl) {
+  console.warn('DATABASE_URL is missing in environment variables.');
+}
 
 const pool = new Pool({
   connectionString: dbUrl,
-  // Add SSL if needed for production
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 pool.on('error', (err) => {
-  console.log('Postgres connection warning (safe to ignore in preview without db container):', err.message);
+  console.error('Unexpected error on idle client', err);
 });
 
-export const query = async (text: string, params: any[] = []) => {
-  try {
-    return await pool.query(text, params);
-  } catch (error) {
-    console.error('Database query failed. Simulating response for preview environment.', error);
-    return { rows: [] }; // Return mock data if DB is down
-  }
+export const query = (text: string, params: any[] = []) => {
+  return pool.query(text, params);
+};
+
+export const getClient = () => {
+  return pool.connect();
 };

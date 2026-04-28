@@ -46,10 +46,10 @@ router.post('/start', authenticateToken, async (req: AuthRequest, res) => {
     res.json({ success: true, data: { jobId: job.id }, message: 'Scan initiated' });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, data: null, message: 'Validation error', error: (error as any).errors });
+      res.status(400).json({ success: false, error: 'Validation error', details: (error as any).errors });
       return;
     }
-    res.status(500).json({ success: false, data: null, message: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -62,7 +62,6 @@ router.post('/live/start', authenticateToken, requireRole(['Admin', 'Cybersecuri
     const validatedData = LiveScanSchema.parse(req.body);
     const { streamUrl } = validatedData;
 
-    // In production, this might spawn a worker process specifically for continuous monitoring
     const job = await scanQueue.add('liveScan', { streamUrl, tenantId }, { repeat: { every: 10000, limit: 100 } });
     
     await logAuditAction({
@@ -76,10 +75,10 @@ router.post('/live/start', authenticateToken, requireRole(['Admin', 'Cybersecuri
     res.json({ success: true, data: { jobId: job.id }, message: 'Live monitoring started' });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, data: null, message: 'Validation error', error: (error as any).errors });
+      res.status(400).json({ success: false, error: 'Validation error', details: (error as any).errors });
       return;
     }
-    res.status(500).json({ success: false, data: null, message: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -93,9 +92,9 @@ router.get('/detections', authenticateToken, async (req: AuthRequest, res) => {
       'SELECT * FROM detections WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 100',
       [tenantId]
     );
-    res.json({ success: true, data: rows, message: 'Detections fetched' });
+    res.json({ success: true, data: rows });
   } catch (err: any) {
-    res.status(500).json({ success: false, data: null, message: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -109,7 +108,7 @@ router.get('/history', authenticateToken, async (req: AuthRequest, res) => {
     );
     res.json({ success: true, data: rows });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -123,22 +122,21 @@ router.post('/history', authenticateToken, async (req: AuthRequest, res) => {
     );
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Search API Proxy (Mock for now or integrates with runWebScan)
+// Search API Proxy
 router.post('/search', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { queries } = req.body;
-    // Real implementation would hit Google Custom Search
     const mockResults = [
       { url: "https://example-pirate-site.com/watch/leak", platform: "Web", title: "Leaked Content", snippet: "Watch the latest leak here" },
       { url: "https://t.me/pirate_group_xyz", platform: "Telegram", title: "Pirate Group", snippet: "Download HD rip" }
     ];
-    res.json({ results: mockResults, total_found: mockResults.length, mode: 'simulated' });
+    res.json({ success: true, data: { results: mockResults, total_found: mockResults.length, mode: 'simulated' } });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -173,9 +171,9 @@ router.post('/ai/fingerprint', authenticateToken, async (req: AuthRequest, res) 
         responseSchema: schema,
       }
     });
-    res.json(JSON.parse(response.text || "{}"));
+    res.json({ success: true, data: JSON.parse(response.text || "{}") });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -250,9 +248,9 @@ router.post('/ai/analyze', authenticateToken, async (req: AuthRequest, res) => {
         responseSchema: schema,
       }
     });
-    res.json(JSON.parse(response.text || "{}"));
+    res.json({ success: true, data: JSON.parse(response.text || "{}") });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -286,9 +284,9 @@ router.post('/ai/actions', authenticateToken, async (req: AuthRequest, res) => {
         responseSchema: schema,
       }
     });
-    res.json(JSON.parse(response.text || "{}"));
+    res.json({ success: true, data: JSON.parse(response.text || "{}") });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

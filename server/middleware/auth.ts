@@ -1,4 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import { query } from '../db/index.js';
+import logger from '../utils/logger.js';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-production-key-change-this';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -11,26 +16,49 @@ export interface AuthRequest extends Request {
   };
 }
 
-/**
- * TEMPORARILY DISABLED AUTH FOR DEBUGGING
- * Allows all requests and attaches a mock user.
- */
 export const authenticateToken = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-  // Attach mock user as requested
-  req.user = {
-    id: "1",
-    uid: "1",
-    email: "test@demo.com",
-    role: "Admin",
-    tenantId: "mock-tenant-id",
-    tenantType: "Organization"
-  };
-  next();
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    res.status(401).json({ error: 'Unauthorized: No token provided' });
+    return;
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    
+    // Verify user still exists in DB
+    const { rows } = await query('SELECT uid, email, role, tenant_id, tenant_type FROM users WHERE uid = $1', [decoded.uid]);
+    
+    if (rows.length === 0) {
+      res.status(401).json({ error: 'Unauthorized: User no longer exists' });
+      return;
+    }
+
+    const user = rows[0];
+    req.user = {
+      id: user.uid,
+      uid: user.uid,
+      email: user.email,
+      role: user.role,
+      tenantId: user.tenant_id,
+      tenantType: user.tenant_type
+    };
+    
+    next();
+  } catch (error: any) {
+    logger.error('JWT Verification failed', { error: error.message });
+    res.status(403).json({ error: 'Forbidden: Invalid or expired token' });
+  }
 };
 
 export const requireRole = (roles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    // Temporarily bypass role checks
+    if (!req.user || !roles.includes(req.user.role)) {
+      res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+      return;
+    }
     next();
   };
 };

@@ -15,7 +15,7 @@ router.get('/', authenticateToken, async (req, res) => {
         res.json({ success: true, data: result.rows });
     }
     catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 router.post('/', authenticateToken, async (req, res) => {
@@ -26,7 +26,7 @@ router.post('/', authenticateToken, async (req, res) => {
         res.json({ success: true });
     }
     catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 export default router;
