@@ -63,7 +63,7 @@ async function startServer() {
     app.use('/api/audit', auditRoutes);
     // Health check
     app.get('/api/health', (req, res) => {
-        res.json({ status: 'ok', service: 'AssetGuard AI' });
+        res.status(200).json({ status: 'ok', service: 'AssetGuard AI' });
     });
     app.get('/health', (req, res) => {
         res.status(200).send("OK");
@@ -72,6 +72,12 @@ async function startServer() {
     // In development (tsx), __dirname is root. In production (dist-server), __dirname is dist-server.
     const distPath = path.join(__dirname, fs.existsSync(path.join(__dirname, 'dist')) ? 'dist' : '../dist');
     app.use(express.static(distPath));
+    app.get('/', (req, res, next) => {
+        if (fs.existsSync(path.join(distPath, 'index.html'))) {
+            return next(); // Let the catch-all handle it
+        }
+        res.send("Backend running");
+    });
     // Catch-all for SPA
     app.get('*', (req, res) => {
         res.sendFile(path.join(distPath, 'index.html'));
