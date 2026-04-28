@@ -18,7 +18,7 @@ interface UserData {
 interface AuthContextType {
   userData: UserData | null;
   loading: boolean;
-  login: (email: string, password?: string) => Promise<void>;
+  login: (email: string, password?: string) => Promise<any>;
   logout: () => Promise<void>;
   updateUserRole: (role: UserRole) => Promise<void>;
 }
@@ -89,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch(e) {
           console.error('Audit log failed', e);
         }
+        return result.user;
       } else {
         throw new Error(result.message || result.error || 'Login failed');
       }

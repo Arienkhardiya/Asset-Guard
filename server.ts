@@ -53,7 +53,11 @@ async function startServer() {
   app.use(helmet({
     contentSecurityPolicy: false,
   }));
-  app.use(cors({ origin: "*" }));
+  app.use(cors({
+    origin: '*',
+    methods: ['GET','POST','PUT','DELETE'],
+    allowedHeaders: ['Content-Type','Authorization']
+  }));
   app.use(express.json({ limit: '10mb' }));
 
   // Rate Limiting
@@ -103,8 +107,11 @@ async function startServer() {
 
   // Global Error Handler
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    logger.error('Unhandled exception', { error: err.message, stack: err.stack });
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: err.message || "Internal Server Error"
+    });
   });
 
   httpServer.listen(PORT as number, '0.0.0.0', () => {

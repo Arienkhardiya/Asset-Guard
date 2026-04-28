@@ -25,8 +25,12 @@ export default function Login() {
 
     try {
       if (isLogin) {
-        await login(email, password);
-        navigate('/');
+        const user = await login(email, password);
+        if (user && user.role === 'admin') {
+          navigate('/');
+        } else {
+          navigate('/analysis');
+        }
       } else {
         // Simple registration flow
         const res = await fetch(`/api/auth/register`, {

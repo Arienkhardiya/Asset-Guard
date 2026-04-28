@@ -1,6 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
-import { authenticateToken, AuthRequest, requireRole } from '../middleware/auth.js';
+import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 import { sendDMCANotice } from '../services/action/index.js';
 import { query } from '../db/index.js';
 import { logAuditAction } from '../utils/auditLogger.js';
@@ -11,7 +11,7 @@ const TakedownSchema = z.object({
   detectionId: z.string().uuid('Invalid detection ID format')
 });
 
-router.post('/takedown', authenticateToken, requireRole(['Admin', 'Legal Analyst']), async (req: AuthRequest, res) => {
+router.post('/takedown', authenticateToken, async (req: AuthRequest, res) => {
   const user = req.user!;
   const tenantId = user.tenantId;
 

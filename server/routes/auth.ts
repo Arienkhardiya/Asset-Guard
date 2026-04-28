@@ -6,87 +6,92 @@ import { query } from '../db/index.js';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-production-key-change-this';
 const SALT_ROUNDS = 10;
+
+const DEMO_USERS = [
+  {
+    id: "demo-1",
+    uid: "demo-1",
+    email: "admin@demo.com",
+    password: "123456",
+    role: "admin",
+    tenantId: "ipl"
+  },
+  {
+    id: "demo-2",
+    uid: "demo-2",
+    email: "analyst@demo.com",
+    password: "123456",
+    role: "analyst",
+    tenantId: "ipl"
+  }
+];
 
 // Register logic
 router.post('/register', async (req, res) => {
-  const { email, password, tenant_id } = req.body;
-  
-  if (!email || !password) {
-    return res.status(400).json({ success: false, message: 'Email and password are required' });
-  }
-
-  try {
-    // Check if user exists
-    const existing = await query('SELECT uid FROM users WHERE email = $1', [email]);
-    if (existing.rows.length > 0) {
-      return res.status(400).json({ success: false, message: 'User already exists' });
-    }
-
-    // Determine role: admin if first user, else user
-    const userCountRes = await query('SELECT count(*) FROM users');
-    const isFirstUser = parseInt(userCountRes.rows[0].count) === 0;
-    const assignedRole = isFirstUser ? 'admin' : 'user';
-
-    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-    const uid = crypto.randomUUID();
-    const finalTenantId = tenant_id || crypto.randomUUID(); // From request or fallback
-    
-    // As requested: INSERT INTO users (email, password, uid, tenant_id, role) VALUES ($1, $2, $3, $4, $5)
-    // We include id since the schema requires a UUID primary key without default specified in user prompt
-    await query(
-      `INSERT INTO users (id, email, password, uid, tenant_id, role) 
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [crypto.randomUUID(), email, hashedPassword, uid, finalTenantId, assignedRole]
-    );
-    
-    const user = { uid, email, role: assignedRole, tenant_id: finalTenantId };
-    const token = jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
-    
-    res.status(200).json({ success: true, token, user, message: "Registration successful" });
-  } catch (error: any) {
-    console.error('[Auth Register Error]:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
+  res.json({
+    success: true,
+    message: "Demo mode active. Use demo login (admin@demo.com / 123456)."
+  });
 });
 
 // Login logic
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  
-  if (!email || !password) {
-    return res.status(400).json({ success: false, message: 'Email and password are required' });
-  }
-
   try {
-    // Exact requested query
+    const { email, password } = req.body;
+
+    // 🔥 DEMO MODE CHECK
+    const user = DEMO_USERS.find(
+      u => u.email === email && u.password === password
+    );
+
+    if (user) {
+      const token = jwt.sign(
+        {
+          id: user.id,
+          uid: user.uid,
+          email: user.email,
+          role: user.role,
+          tenantId: user.tenantId
+        },
+        process.env.JWT_SECRET as string,
+        { expiresIn: "1d" }
+      );
+
+      return res.json({
+        success: true,
+        token,
+        user
+      });
+    }
+
+    // fallback (optional real DB)
     const { rows } = await query('SELECT * FROM users WHERE email = $1', [email]);
-    
-    if (rows.length === 0) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    if (rows.length > 0) {
+      const dbUser = rows[0];
+      const isMatch = await bcrypt.compare(password, dbUser.password);
+      if (isMatch) {
+        const payload = {
+          uid: dbUser.uid,
+          email: dbUser.email,
+          role: dbUser.role,
+          tenantId: dbUser.tenant_id
+        };
+        const token = jwt.sign(payload, process.env.JWT_SECRET as string, { expiresIn: '24h' });
+        return res.status(200).json({ success: true, message: "Login successful", token, user: payload });
+      }
     }
 
-    const dbUser = rows[0];
-    const isMatch = await bcrypt.compare(password, dbUser.password);
-    
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    }
-
-    const user = {
-      uid: dbUser.uid,
-      email: dbUser.email,
-      role: dbUser.role,
-      tenant_id: dbUser.tenant_id
-    };
-
-
-    const token = jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
-    res.status(200).json({ success: true, message: "Login successful", token, user });
-  } catch (error: any) {
-    console.error('[Auth Login Error]:', error);
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(401).json({
+      success: false,
+      message: "Invalid credentials"
+    });
+  } catch (err: any) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
   }
 });
 

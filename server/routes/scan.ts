@@ -1,6 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
-import { authenticateToken, AuthRequest, requireRole } from '../middleware/auth.js';
+import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 import { scanQueue } from '../services/queue/bullmq.js';
 import { query } from '../db/index.js';
 import { logAuditAction } from '../utils/auditLogger.js';
@@ -60,7 +60,7 @@ router.post('/start', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // Start Live Server Monitor
-router.post('/live/start', authenticateToken, requireRole(['Admin', 'Cybersecurity Analyst']), async (req: AuthRequest, res) => {
+router.post('/live/start', authenticateToken, async (req: AuthRequest, res) => {
   const user = req.user!;
   const tenantId = user.tenantId;
 
