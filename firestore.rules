@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitives
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+
+    function isAdmin() { 
+      return isSignedIn() && (
+        request.auth.token.email == 'arienkhardiya@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin')
+      );
+    }
+    
+    function getUserTenantId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId;
+    }
+
+    // Validation Blueprint for User
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'tenantType', 'tenantId', 'tenantName', 'createdAt', 'updatedAt']) &&
+             data.keys().size() == 7 &&
+             data.email is string && data.email.size() <= 150 &&
+             data.role is string && data.role in ['Admin', 'Cybersecurity Analyst', 'Legal Analyst', 'Business Analyst', 'Creator'] &&
+             data.tenantType is string && data.tenantType in ['Organization', 'Creator'] &&
+             data.tenantId is string && data.tenantId.size() <= 128 &&
+             data.tenantName is string && data.tenantName.size() <= 128 &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidScan(data) {
+      return data.keys().hasAll(['tenantId', 'createdBy', 'inputQuery', 'riskLevel', 'similarity', 'confidence', 'spreadLevel', 'totalLinks', 'createdAt']) &&
+             data.keys().size() == 9 &&
+             data.tenantId is string && data.tenantId.size() <= 128 &&
+             data.createdBy is string && data.createdBy.size() <= 128 &&
+             data.inputQuery is string && data.inputQuery.size() <= 500 &&
+             data.riskLevel is string && data.riskLevel.size() <= 50 &&
+             data.similarity is number &&
+             data.confidence is string && data.confidence.size() <= 50 &&
+             data.spreadLevel is string && data.spreadLevel.size() <= 50 &&
+             data.totalLinks is number &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['tenantId', 'userId', 'userEmail', 'role', 'action', 'details', 'createdAt']) &&
+             data.keys().size() == 7 &&
+             data.tenantId is string &&
+             data.userId is string &&
+             data.userEmail is string &&
+             data.role is string &&
+             data.action is string &&
+             data.details is string &&
+             data.createdAt is timestamp;
+    }
+
+    // User path
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      // Admin sees users in their own tenant
+      allow list: if isSignedIn() && resource.data.tenantId == getUserTenantId() && isAdmin();
+
+      // Users create their own profile upon signup
+      allow create: if isValidId(userId) &&
+                       isOwner(userId) &&
+                       isValidUser(incoming()) &&
+                       incoming().email == request.auth.token.email &&
+                       incoming().createdAt == request.time &&
+                       incoming().updatedAt == request.time;
+      
+      // Allow update: Users can update basic info, but not role
+      allow update: if isValidId(userId) &&
+                       (
+                         (isOwner(userId) && 
+                          incoming().diff(existing()).affectedKeys().hasOnly(['updatedAt']) &&
+                          incoming().updatedAt == request.time
+                         )
+                         || 
+                         (isAdmin() &&
+                          incoming().diff(existing()).affectedKeys().hasAny(['role', 'updatedAt']) &&
+                          incoming().updatedAt == request.time
+                         )
+                       );
+    }
+    
+    // Scans path
+    match /scans/{scanId} {
+      // Must belong to the user's tenant
+      allow get: if isValidId(scanId) && isSignedIn() && existing().tenantId == getUserTenantId();
+      // Allow list only for user's tenant
+      allow list: if isSignedIn() && resource.data.tenantId == getUserTenantId();
+      
+      allow create: if isValidId(scanId) &&
+                       isSignedIn() &&
+                       isValidScan(incoming()) &&
+                       incoming().tenantId == getUserTenantId() &&
+                       incoming().createdBy == request.auth.uid &&
+                       incoming().createdAt == request.time;
+      
+      allow update: if false; // Scans are immutable records
+      allow delete: if false; // Scans are immutable records
+    }
+
+    // Audit logs path
+    match /audit_logs/{logId} {
+      allow get: if isValidId(logId) && isSignedIn() && existing().tenantId == getUserTenantId();
+      allow list: if isSignedIn() && resource.data.tenantId == getUserTenantId() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow create: if isValidId(logId) && 
+                       isSignedIn() &&
+                       isValidAuditLog(incoming()) &&
+                       incoming().tenantId == getUserTenantId() &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().createdAt == request.time;
+    }
+  }
+}
