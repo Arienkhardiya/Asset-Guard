@@ -6,6 +6,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { API_BASE } from '../config';
+import { safeJson } from '../utils/api';
 
 export type UserRole = 'Admin' | 'Cybersecurity Analyst' | 'Legal Analyst' | 'Business Analyst' | 'Creator';
 export type TenantType = 'Organization' | 'Creator';
@@ -47,15 +48,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
-          if (res.ok) {
-            const data = await res.json();
-            setUserData(data as UserData);
+          const data = await safeJson(res);
+          setUserData(data as UserData);
             
             // Just basic tracking log
             try {
               const sessionKey = `logged_in_${currentUser.uid}`;
               if (!sessionStorage.getItem(sessionKey)) {
-                await fetch(`${API_BASE}/api/audit`, {
+                const auditRes = await fetch(`${API_BASE}/api/audit`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -66,12 +66,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     details: 'User authenticated and started a secure session.'
                   })
                 });
+                await safeJson(auditRes);
                 sessionStorage.setItem(sessionKey, 'true');
               }
             } catch(e) {}
-          } else {
-            console.error("User data not found in Backend");
-          }
         } catch (error) {
           console.error("Error fetching user role:", error);
         }

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { API_BASE } from '../config';
 import { auth } from '../lib/firebase';
+import { safeJson } from '../utils/api';
 
 export interface AuditLog {
   id: string;
@@ -62,7 +63,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
     if (!userData?.tenantId || !userData?.uid) return;
     try {
       const token = await auth.currentUser?.getIdToken();
-      await fetch(`${API_BASE}/api/audit`, {
+      const res = await fetch(`${API_BASE}/api/audit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -70,6 +71,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
         },
         body: JSON.stringify({ action, details })
       });
+      await safeJson(res);
       fetchLogs(); // Refresh logs after adding
     } catch (error) {
       console.error("Failed to log action", error);
@@ -83,10 +85,8 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(`${API_BASE}/api/audit`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (res.ok) {
-        const { data } = await res.json();
-        setAuditLogs(data || []);
-      }
+      const { data } = await safeJson(res);
+      setAuditLogs(data || []);
     } catch (e) {
       console.error("Failed to fetch audit logs", e);
     }

@@ -9,6 +9,7 @@ import { useSecurity } from '../context/SecurityContext';
 import { useAuth } from '../context/AuthContext';
 import { auth } from '../lib/firebase';
 import { API_BASE } from '../config';
+import { safeJson } from '../utils/api';
 import PipelineVisualizer from '../components/PipelineVisualizer';
 
 interface PiracyHit {
@@ -102,7 +103,7 @@ export default function LiveMonitor() {
       const token = await auth.currentUser?.getIdToken();
       if (!token) return;
       
-      await fetch(`${API_BASE}/api/scan/live/start`, {
+      const res = await fetch(`${API_BASE}/api/scan/live/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -110,6 +111,7 @@ export default function LiveMonitor() {
         },
         body: JSON.stringify({ streamUrl })
       });
+      await safeJson(res);
     } catch(e) {
       console.error(e);
     }
@@ -136,7 +138,7 @@ export default function LiveMonitor() {
         const token = await auth.currentUser?.getIdToken();
         if (!token) return;
 
-        await fetch(`${API_BASE}/api/actions/takedown`, {
+        const res = await fetch(`${API_BASE}/api/actions/takedown`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -144,6 +146,7 @@ export default function LiveMonitor() {
           },
           body: JSON.stringify({ detectionId: hitId })
         });
+        await safeJson(res);
       } catch (e) {
         console.error('Takedown API failed', e);
       }

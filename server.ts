@@ -32,18 +32,11 @@ async function startServer() {
   
   const httpServer = createServer(app);
   
-  const ALLOWED_ORIGINS = [
-    "https://gen-lang-client-0817240706.web.app",
-    "https://gen-lang-client-0817240706.firebaseapp.com",
-    ...(process.env.NODE_ENV !== 'production' ? ["http://localhost:5173", "http://localhost:3000"] : [])
-  ];
-
   // Set up socket.io
   const io = new Server(httpServer, {
     cors: {
-      origin: ALLOWED_ORIGINS,
-      methods: ["GET", "POST"],
-      credentials: true
+      origin: "*",
+      methods: ["GET", "POST"]
     }
   });
   
@@ -53,12 +46,9 @@ async function startServer() {
 
   // Security Middleware
   app.use(helmet({
-    contentSecurityPolicy: false, // Disabled for Vite dev server compatibility
+    contentSecurityPolicy: false,
   }));
-  app.use(cors({
-    origin: ALLOWED_ORIGINS,
-    credentials: true
-  }));
+  app.use(cors({ origin: "*" }));
   app.use(express.json({ limit: '10mb' }));
 
   // Rate Limiting

@@ -2,21 +2,7 @@ import React, { createContext, useContext, useState } from 'react';
 import { auth } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import { API_BASE } from '../config';
-
-// Safe JSON parser — logs raw response if Cloud Run returns HTML instead of JSON
-const safeJson = async (res: Response) => {
-  const text = await res.text();
-  if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
-    console.error('[AssetGuard] Backend returned HTML instead of JSON. URL:', res.url, '\nResponse:', text.slice(0, 300));
-    throw new Error('Backend unreachable — received HTML response. Check CORS / Cloud Run deployment.');
-  }
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    console.error('[AssetGuard] Invalid JSON from', res.url, '\nRaw:', text.slice(0, 300));
-    throw new Error('Invalid JSON response from backend.');
-  }
-};
+import { safeJson } from '../utils/api';
 
 export interface FingerprintResult {
   content_type: string;
@@ -119,15 +105,15 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
     if (!userData?.tenantId) return;
     try {
       const token = await auth.currentUser?.getIdToken();
-      const res = await fetch(`${API_BASE}/api/scan/history`, {
+      const url = `${API_BASE}/api/scan/history`;
+      console.log('[AssetGuard] API CALL:', url);
+      const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (res.ok) {
-        const { data } = await res.json();
-        setPastScans(data || []);
-      }
+      const { data } = await safeJson(res);
+      setPastScans(data || []);
     } catch (e) {
-      console.error(e);
+      console.error('[AssetGuard] History fetch failed:', e);
     }
   };
 
@@ -211,21 +197,19 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       
       try {
         const token = await auth.currentUser?.getIdToken();
-        if (token) {
-          // Trigger actual backend job
-          const scanRes = await fetch(`${API_BASE}/api/scan/start`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ searchQuery: input, type: "WEB" })
-          });
-          const scanData = await scanRes.json();
-          console.log('Initiated real backend scan:', scanData);
-        }
+        const url = `${API_BASE}/api/scan/start`;
+        console.log('[AssetGuard] API CALL:', url);
+        const scanRes = await fetch(url, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ searchQuery: input, type: 'web' })
+        });
+        await safeJson(scanRes);
       } catch (e) {
-        console.error('Backend scan failed, continuing with fallback.', e);
+        console.error('[AssetGuard] Backend scan start failed:', e);
       }
       
       let searchResponse;
@@ -244,10 +228,10 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       }
       
       let finalScanData: ScannerResult;
-      if (!searchResponse || !searchResponse.ok) {
+      if (!searchResponse) {
         finalScanData = { results: [], total_found: 0, mode: 'simulated' };
       } else {
-        finalScanData = await searchResponse.json();
+        finalScanData = await safeJson(searchResponse);
       }
       
       setScanMode(finalScanData.mode);
@@ -269,16 +253,18 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
 
       // SAVE TO ENTERPRISE POSTGRES
       if (userData?.tenantId) {
-        const token = await auth.currentUser?.getIdToken();
-        if (token) {
-          await fetch(`${API_BASE}/api/scan/history`, {
+        try {
+          const token = await auth.currentUser?.getIdToken();
+          const url_hist = `${API_BASE}/api/scan/history`;
+          console.log('[AssetGuard] API CALL:', url_hist);
+          await fetch(url_hist, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-              inputQuery: input.substring(0, 500),
+              inputQuery: input,
               riskLevel: analysis.risk_level,
               similarity: analysis.similarity,
               confidence: analysis.confidence,
@@ -286,19 +272,23 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
               totalLinks: analysis.total_links_found
             })
           });
-          
-          await fetch(`${API_BASE}/api/audit`, {
+
+          const url_audit = `${API_BASE}/api/audit`;
+          console.log('[AssetGuard] API CALL:', url_audit);
+          await fetch(url_audit, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-              action: 'SCAN_PERFORMED',
-              details: `Performed system scan. Inputs truncated to footprint. Found ${analysis.total_links_found} vectors.`
+              action: 'THREAT_ANALYSIS',
+              details: `Analyzed ${analysis.total_links_found} links for query: ${input}. Risk: ${analysis.risk_level}`
             })
           });
           fetchHistory();
+        } catch (e) {
+          console.error('[AssetGuard] Persistence failed:', e);
         }
       }
     } catch (err: any) {

@@ -9,6 +9,7 @@ import { Shield, Loader2, Mail, Lock, User, AlertTriangle, Building2, UserCircle
 import { auth } from '../lib/firebase';
 import { UserRole, TenantType } from '../context/AuthContext';
 import { API_BASE } from '../config';
+import { safeJson } from '../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Login() {
@@ -43,7 +44,7 @@ export default function Login() {
 
         // Create the user document in the backend database
         const token = await user.getIdToken();
-        await fetch(`${API_BASE}/api/auth/sync`, {
+        const syncRes = await fetch(`${API_BASE}/api/auth/sync`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -57,6 +58,7 @@ export default function Login() {
             tenantId: newTenantId
           })
         });
+        await safeJson(syncRes);
 
         // Backend will log the Organization/Creator Creation automatically or we can rely on backend hooks.
 
