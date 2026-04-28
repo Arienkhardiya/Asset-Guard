@@ -39,8 +39,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
           
           if (res.ok) {
-            const data = await safeJson(res);
-            setUserData(data as UserData);
+            const result = await safeJson(res);
+            if (result.success) {
+              setUserData(result.data as UserData);
+            } else {
+              throw new Error('Failed to fetch user data');
+            }
           } else {
             localStorage.removeItem('token');
             setUserData(null);
@@ -64,10 +68,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password })
       });
       
-      const data = await safeJson(res);
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-        setUserData(data.user);
+      const result = await safeJson(res);
+      if (result.success && result.data?.token) {
+        localStorage.setItem('token', result.data.token);
+        setUserData(result.data.user);
         
         // Audit log
         try {
@@ -75,14 +79,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${data.token}`
+              'Authorization': `Bearer ${result.data.token}`
             },
             body: JSON.stringify({
               action: 'LOGIN',
               details: 'User authenticated via local JWT.'
             })
           });
-        } catch(e) {}
+        } catch(e) {
+          console.error('Audit log failed', e);
+        }
+      } else {
+        throw new Error(result.error || 'Login failed');
       }
     } catch (error) {
       console.error("Login failed:", error);

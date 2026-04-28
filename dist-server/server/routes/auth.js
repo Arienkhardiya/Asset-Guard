@@ -11,13 +11,13 @@ const SALT_ROUNDS = 10;
 router.post('/register', async (req, res) => {
     const { email, password, role, tenantName, tenantType } = req.body;
     if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required' });
+        return res.status(400).json({ success: false, error: 'Email and password are required' });
     }
     try {
         // Check if user exists
         const existing = await query('SELECT uid FROM users WHERE email = $1', [email]);
         if (existing.rows.length > 0) {
-            return res.status(400).json({ error: 'User already exists' });
+            return res.status(400).json({ success: false, error: 'User already exists' });
         }
         const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
         const uid = crypto.randomUUID();
@@ -26,27 +26,28 @@ router.post('/register', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7)`, [uid, email, hashedPassword, role || 'Cybersecurity Analyst', tenantId, tenantType || 'Organization', tenantName || 'Default Tenant']);
         const user = { uid, email, role: role || 'Cybersecurity Analyst', tenantId, tenantType: tenantType || 'Organization' };
         const token = jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, user });
+        res.json({ success: true, data: { token, user } });
     }
     catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('[Auth Register Error]:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 // Login logic
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required' });
+        return res.status(400).json({ success: false, error: 'Email and password are required' });
     }
     try {
         const { rows } = await query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email]);
         if (rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+            return res.status(401).json({ success: false, error: 'Invalid credentials' });
         }
         const dbUser = rows[0];
         const isMatch = await bcrypt.compare(password, dbUser.password);
         if (!isMatch) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+            return res.status(401).json({ success: false, error: 'Invalid credentials' });
         }
         const user = {
             uid: dbUser.uid,
@@ -56,24 +57,26 @@ router.post('/login', async (req, res) => {
             tenantType: dbUser.tenant_type
         };
         const token = jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, user });
+        res.json({ success: true, data: { token, user } });
     }
     catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('[Auth Login Error]:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 // Get current user
 router.get('/me', authenticateToken, async (req, res) => {
-    res.json(req.user);
+    res.json({ success: true, data: req.user });
 });
 router.put('/role', authenticateToken, async (req, res) => {
     const { role } = req.body;
     try {
         await query('UPDATE users SET role = $1 WHERE uid = $2', [role, req.user.uid]);
-        res.json({ success: true });
+        res.json({ success: true, data: { role } });
     }
     catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[Auth Role Update Error]:', err);
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 export default router;

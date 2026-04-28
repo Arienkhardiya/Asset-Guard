@@ -79,7 +79,7 @@ async function startServer() {
   });
 
   app.get('/health', (req, res) => {
-    res.status(200).send("AssetGuard Backend Running 🚀");
+    res.status(200).send("OK");
   });
 
   // Serve Frontend Static Files

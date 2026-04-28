@@ -66,7 +66,7 @@ async function startServer() {
         res.json({ status: 'ok', service: 'AssetGuard AI' });
     });
     app.get('/health', (req, res) => {
-        res.status(200).send("AssetGuard Backend Running 🚀");
+        res.status(200).send("OK");
     });
     // Serve Frontend Static Files
     // In development (tsx), __dirname is root. In production (dist-server), __dirname is dist-server.
