@@ -7,8 +7,6 @@ import {
 import { io, Socket } from 'socket.io-client';
 import { useSecurity } from '../context/SecurityContext';
 import { useAuth } from '../context/AuthContext';
-import { useAuth } from '../context/AuthContext';
-import { API_BASE } from '../config';
 import { safeJson } from '../utils/api';
 import PipelineVisualizer from '../components/PipelineVisualizer';
 
@@ -40,7 +38,7 @@ export default function LiveMonitor() {
       const token = localStorage.getItem('token');
       if (!token) return;
       
-      socketIo = io(API_BASE, {
+      socketIo = io({
         auth: { token }
       });
 
@@ -103,7 +101,7 @@ export default function LiveMonitor() {
       const token = localStorage.getItem('token');
       if (!token) return;
       
-      const res = await fetch(`${API_BASE}/api/scan/live/start`, {
+      const res = await fetch(`/api/scan/live/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -138,7 +136,7 @@ export default function LiveMonitor() {
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        const res = await fetch(`${API_BASE}/api/actions/takedown`, {
+        const res = await fetch(`/api/actions/takedown`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

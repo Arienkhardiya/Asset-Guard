@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Loader2, Mail, Lock, User, AlertTriangle, Building2 } from 'lucide-react';
 import { useAuth, UserRole } from '../context/AuthContext';
-import { API_BASE } from '../config';
 import { safeJson } from '../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -30,7 +29,7 @@ export default function Login() {
         navigate('/');
       } else {
         // Simple registration flow
-        const res = await fetch(`${API_BASE}/api/auth/register`, {
+        const res = await fetch(`/api/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

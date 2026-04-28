@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
 import { useAuth } from './AuthContext';
-import { API_BASE } from '../config';
 import { safeJson } from '../utils/api';
 
 export interface FingerprintResult {
@@ -104,7 +103,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
     if (!userData?.tenantId) return;
     try {
       const token = localStorage.getItem('token');
-      const url = `${API_BASE}/api/scan/history`;
+      const url = `/api/scan/history`;
       console.log('[AssetGuard] API CALL:', url);
       const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -127,7 +126,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
   // --- AI LOGIC ---
   const generateFingerprint = async (content: string): Promise<FingerprintResult> => {
     const token = localStorage.getItem('token');
-    const url = `${API_BASE}/api/scan/ai/fingerprint`;
+    const url = `/api/scan/ai/fingerprint`;
     console.log('[AssetGuard] API CALL:', url);
     const res = await fetch(url, {
       method: 'POST',
@@ -143,7 +142,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
 
   const analyzeThreats = async (content: string, scanData: ScannerResult): Promise<AnalysisResult> => {
     const token = localStorage.getItem('token');
-    const url = `${API_BASE}/api/scan/ai/analyze`;
+    const url = `/api/scan/ai/analyze`;
     console.log('[AssetGuard] API CALL:', url);
     const res = await fetch(url, {
       method: 'POST',
@@ -159,7 +158,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
 
   const generateActions = async (analysis: AnalysisResult): Promise<ActionResult> => {
     const token = localStorage.getItem('token');
-    const url = `${API_BASE}/api/scan/ai/actions`;
+    const url = `/api/scan/ai/actions`;
     console.log('[AssetGuard] API CALL:', url);
     const res = await fetch(url, {
       method: 'POST',
@@ -196,7 +195,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       
       try {
         const token = localStorage.getItem('token');
-        const url = `${API_BASE}/api/scan/start`;
+        const url = `/api/scan/start`;
         console.log('[AssetGuard] API CALL:', url);
         const scanRes = await fetch(url, {
           method: 'POST',
@@ -214,7 +213,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       let searchResponse;
       try {
         const token = localStorage.getItem('token');
-        searchResponse = await fetch(`${API_BASE}/api/search`, {
+        searchResponse = await fetch(`/api/search`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -254,7 +253,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       if (userData?.tenantId) {
         try {
           const token = localStorage.getItem('token');
-          const url_hist = `${API_BASE}/api/scan/history`;
+          const url_hist = `/api/scan/history`;
           console.log('[AssetGuard] API CALL:', url_hist);
           await fetch(url_hist, {
             method: 'POST',
@@ -272,7 +271,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
             })
           });
 
-          const url_audit = `${API_BASE}/api/audit`;
+          const url_audit = `/api/audit`;
           console.log('[AssetGuard] API CALL:', url_audit);
           await fetch(url_audit, {
             method: 'POST',

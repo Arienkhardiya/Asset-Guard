@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { API_BASE } from '../config';
-import { API_BASE } from '../config';
 import { safeJson } from '../utils/api';
 
 export interface AuditLog {
@@ -63,7 +61,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
     if (!userData?.tenantId || !userData?.uid) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/audit`, {
+      const res = await fetch(`/api/audit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,7 +80,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
     if (!userData?.tenantId) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/audit`, {
+      const res = await fetch(`/api/audit`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const { data } = await safeJson(res);

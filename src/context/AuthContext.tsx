@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { API_BASE } from '../config';
 import { safeJson } from '../utils/api';
 
 export type UserRole = 'Admin' | 'Cybersecurity Analyst' | 'Legal Analyst' | 'Business Analyst' | 'Creator';
@@ -35,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          const res = await fetch(`${API_BASE}/api/auth/me`, {
+          const res = await fetch(`/api/auth/me`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
@@ -59,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password?: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/auth/login`, {
+      const res = await fetch(`/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password: password || 'password' })
@@ -72,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Audit log
         try {
-          await fetch(`${API_BASE}/api/audit`, {
+          await fetch(`/api/audit`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -100,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
-      await fetch(`${API_BASE}/api/auth/role`, {
+      await fetch(`/api/auth/role`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
