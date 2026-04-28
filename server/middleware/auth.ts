@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { adminAuth } from '../config/firebase.js';
+import jwt from 'jsonwebtoken';
 import { query } from '../db/index.js';
 import logger from '../utils/logger.js';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-development-key-change-in-prod';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -34,7 +36,7 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
   }
 
   try {
-    const decodedToken = await adminAuth.verifyIdToken(token);
+    const decodedToken = jwt.verify(token, JWT_SECRET) as any;
     
     // Once verified, get user details from PostgreSQL to respect tenant bounds
     const { rows } = await query('SELECT * FROM users WHERE uid = $1', [decodedToken.uid]);
@@ -45,9 +47,9 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
         req.user = {
           uid: decodedToken.uid,
           email: decodedToken.email || 'mock@example.com',
-          role: 'Admin',
-          tenantId: 'mock-tenant',
-          tenantType: 'Organization'
+          role: decodedToken.role || 'Admin',
+          tenantId: decodedToken.tenantId || 'mock-tenant',
+          tenantType: decodedToken.tenantType || 'Organization'
         };
         return next();
       }

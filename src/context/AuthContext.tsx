@@ -1,10 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  User as FirebaseUser,
-  onAuthStateChanged,
-  signOut
-} from 'firebase/auth';
-import { auth } from '../lib/firebase';
 import { API_BASE } from '../config';
 import { safeJson } from '../utils/api';
 
@@ -23,9 +17,9 @@ interface UserData {
 }
 
 interface AuthContextType {
-  user: FirebaseUser | null;
   userData: UserData | null;
   loading: boolean;
+  login: (email: string, password?: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUserRole: (role: UserRole) => Promise<void>;
 }
@@ -33,63 +27,79 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        // Fetch user data from backend
+    const initAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
         try {
-          const token = await currentUser.getIdToken();
           const res = await fetch(`${API_BASE}/api/auth/me`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           
-          const data = await safeJson(res);
-          setUserData(data as UserData);
-            
-            // Just basic tracking log
-            try {
-              const sessionKey = `logged_in_${currentUser.uid}`;
-              if (!sessionStorage.getItem(sessionKey)) {
-                const auditRes = await fetch(`${API_BASE}/api/audit`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                  },
-                  body: JSON.stringify({
-                    action: 'LOGIN',
-                    details: 'User authenticated and started a secure session.'
-                  })
-                });
-                await safeJson(auditRes);
-                sessionStorage.setItem(sessionKey, 'true');
-              }
-            } catch(e) {}
+          if (res.ok) {
+            const data = await safeJson(res);
+            setUserData(data as UserData);
+          } else {
+            localStorage.removeItem('token');
+            setUserData(null);
+          }
         } catch (error) {
-          console.error("Error fetching user role:", error);
+          console.error("Error fetching user data:", error);
+          setUserData(null);
         }
-      } else {
-        setUserData(null);
       }
       setLoading(false);
-    });
+    };
 
-    return unsubscribe;
+    initAuth();
   }, []);
 
+  const login = async (email: string, password?: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: password || 'password' })
+      });
+      
+      const data = await safeJson(res);
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        setUserData(data.user);
+        
+        // Audit log
+        try {
+          await fetch(`${API_BASE}/api/audit`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${data.token}`
+            },
+            body: JSON.stringify({
+              action: 'LOGIN',
+              details: 'User authenticated via local JWT.'
+            })
+          });
+        } catch(e) {}
+      }
+    } catch (error) {
+      console.error("Login failed:", error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
-    await signOut(auth);
+    localStorage.removeItem('token');
+    setUserData(null);
   };
 
   const updateUserRole = async (newRole: UserRole) => {
-    if (!user) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
     try {
-      const token = await user.getIdToken();
       await fetch(`${API_BASE}/api/auth/role`, {
         method: 'PUT',
         headers: {
@@ -105,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, userData, loading, logout, updateUserRole }}>
+    <AuthContext.Provider value={{ userData, loading, login, logout, updateUserRole }}>
       {!loading && children}
     </AuthContext.Provider>
   );

@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState } from 'react';
-import { auth } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import { API_BASE } from '../config';
 import { safeJson } from '../utils/api';
@@ -104,7 +103,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
   const fetchHistory = async () => {
     if (!userData?.tenantId) return;
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = localStorage.getItem('token');
       const url = `${API_BASE}/api/scan/history`;
       console.log('[AssetGuard] API CALL:', url);
       const res = await fetch(url, {
@@ -127,7 +126,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
 
   // --- AI LOGIC ---
   const generateFingerprint = async (content: string): Promise<FingerprintResult> => {
-    const token = await auth.currentUser?.getIdToken();
+    const token = localStorage.getItem('token');
     const url = `${API_BASE}/api/scan/ai/fingerprint`;
     console.log('[AssetGuard] API CALL:', url);
     const res = await fetch(url, {
@@ -143,7 +142,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
   };
 
   const analyzeThreats = async (content: string, scanData: ScannerResult): Promise<AnalysisResult> => {
-    const token = await auth.currentUser?.getIdToken();
+    const token = localStorage.getItem('token');
     const url = `${API_BASE}/api/scan/ai/analyze`;
     console.log('[AssetGuard] API CALL:', url);
     const res = await fetch(url, {
@@ -159,7 +158,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
   };
 
   const generateActions = async (analysis: AnalysisResult): Promise<ActionResult> => {
-    const token = await auth.currentUser?.getIdToken();
+    const token = localStorage.getItem('token');
     const url = `${API_BASE}/api/scan/ai/actions`;
     console.log('[AssetGuard] API CALL:', url);
     const res = await fetch(url, {
@@ -196,7 +195,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       setCurrentStep(2);
       
       try {
-        const token = await auth.currentUser?.getIdToken();
+        const token = localStorage.getItem('token');
         const url = `${API_BASE}/api/scan/start`;
         console.log('[AssetGuard] API CALL:', url);
         const scanRes = await fetch(url, {
@@ -214,7 +213,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       
       let searchResponse;
       try {
-        const token = await auth.currentUser?.getIdToken();
+        const token = localStorage.getItem('token');
         searchResponse = await fetch(`${API_BASE}/api/search`, {
           method: 'POST',
           headers: { 
@@ -254,7 +253,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       // SAVE TO ENTERPRISE POSTGRES
       if (userData?.tenantId) {
         try {
-          const token = await auth.currentUser?.getIdToken();
+          const token = localStorage.getItem('token');
           const url_hist = `${API_BASE}/api/scan/history`;
           console.log('[AssetGuard] API CALL:', url_hist);
           await fetch(url_hist, {

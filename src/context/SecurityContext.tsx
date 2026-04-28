@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { API_BASE } from '../config';
-import { auth } from '../lib/firebase';
+import { API_BASE } from '../config';
 import { safeJson } from '../utils/api';
 
 export interface AuditLog {
@@ -62,7 +62,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
   const logAction = async (action: string, details: string) => {
     if (!userData?.tenantId || !userData?.uid) return;
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE}/api/audit`, {
         method: 'POST',
         headers: {
@@ -81,7 +81,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
   const fetchLogs = async () => {
     if (!userData?.tenantId) return;
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE}/api/audit`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });

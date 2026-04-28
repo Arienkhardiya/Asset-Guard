@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword,
-  AuthError
-} from 'firebase/auth';
-import { Shield, Loader2, Mail, Lock, User, AlertTriangle, Building2, UserCircle } from 'lucide-react';
-import { auth } from '../lib/firebase';
-import { UserRole, TenantType } from '../context/AuthContext';
+import { Shield, Loader2, Mail, Lock, User, AlertTriangle, Building2 } from 'lucide-react';
+import { useAuth, UserRole } from '../context/AuthContext';
 import { API_BASE } from '../config';
 import { safeJson } from '../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,6 +16,7 @@ export default function Login() {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -31,49 +26,31 @@ export default function Login() {
 
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        await login(email, password);
         navigate('/');
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        const newTenantId = crypto.randomUUID();
-        
-        const finalRole = accountType === 'Creator' ? 'Creator' : role;
-        const finalTenantName = accountType === 'Creator' ? user.email?.split('@')[0] || 'Creator' : tenantName.trim();
-        const finalTenantType: TenantType = accountType;
-
-        // Create the user document in the backend database
-        const token = await user.getIdToken();
-        const syncRes = await fetch(`${API_BASE}/api/auth/sync`, {
+        // Simple registration flow
+        const res = await fetch(`${API_BASE}/api/auth/register`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email: user.email,
-            role: finalRole,
-            tenantType: finalTenantType,
-            tenantName: finalTenantName,
-            tenantId: newTenantId
+            email,
+            password,
+            role: accountType === 'Creator' ? 'Creator' : role,
+            tenantName: accountType === 'Creator' ? email.split('@')[0] : tenantName,
+            tenantType: accountType
           })
         });
-        await safeJson(syncRes);
-
-        // Backend will log the Organization/Creator Creation automatically or we can rely on backend hooks.
-
-        navigate('/');
+        
+        const data = await safeJson(res);
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+          window.location.href = '/'; // Reload to pick up new user
+        }
       }
-    } catch (err) {
-      const authError = err as AuthError;
-      console.error(authError);
-      if (authError.code === 'auth/operation-not-allowed') {
-        setError('Email/Password authentication is not enabled. Please enable it in the Firebase Console: Build -> Authentication -> Sign-in method -> Email/Password.');
-      } else if (authError.code === 'auth/invalid-credential' || authError.code === 'auth/user-not-found' || authError.code === 'auth/wrong-password') {
-        setError('Invalid email or password. Please verify your credentials and try again.');
-      } else {
-        setError(authError.message || 'An error occurred during authentication.');
-      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Authentication failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }

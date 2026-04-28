@@ -7,7 +7,7 @@ import {
 import { io, Socket } from 'socket.io-client';
 import { useSecurity } from '../context/SecurityContext';
 import { useAuth } from '../context/AuthContext';
-import { auth } from '../lib/firebase';
+import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../config';
 import { safeJson } from '../utils/api';
 import PipelineVisualizer from '../components/PipelineVisualizer';
@@ -37,7 +37,7 @@ export default function LiveMonitor() {
     let socketIo: Socket | null = null;
     
     const initSocket = async () => {
-      const token = await auth.currentUser?.getIdToken();
+      const token = localStorage.getItem('token');
       if (!token) return;
       
       socketIo = io(API_BASE, {
@@ -100,7 +100,7 @@ export default function LiveMonitor() {
     logAction('MONITOR_START', `Started live monitoring for stream: ${streamUrl}`);
     
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = localStorage.getItem('token');
       if (!token) return;
       
       const res = await fetch(`${API_BASE}/api/scan/live/start`, {
@@ -135,7 +135,7 @@ export default function LiveMonitor() {
     
     if (actionType === 'TERMINATE' || actionType === 'LEGAL') {
       try {
-        const token = await auth.currentUser?.getIdToken();
+        const token = localStorage.getItem('token');
         if (!token) return;
 
         const res = await fetch(`${API_BASE}/api/actions/takedown`, {
