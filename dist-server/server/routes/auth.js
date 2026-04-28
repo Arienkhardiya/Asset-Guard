@@ -9,59 +9,65 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-production-key-change
 const SALT_ROUNDS = 10;
 // Register logic
 router.post('/register', async (req, res) => {
-    const { email, password, role, tenantName, tenantType } = req.body;
+    const { email, password, tenant_id } = req.body;
     if (!email || !password) {
-        return res.status(400).json({ success: false, error: 'Email and password are required' });
+        return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
     try {
         // Check if user exists
         const existing = await query('SELECT uid FROM users WHERE email = $1', [email]);
         if (existing.rows.length > 0) {
-            return res.status(400).json({ success: false, error: 'User already exists' });
+            return res.status(400).json({ success: false, message: 'User already exists' });
         }
+        // Determine role: admin if first user, else user
+        const userCountRes = await query('SELECT count(*) FROM users');
+        const isFirstUser = parseInt(userCountRes.rows[0].count) === 0;
+        const assignedRole = isFirstUser ? 'admin' : 'user';
         const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
         const uid = crypto.randomUUID();
-        const tenantId = crypto.randomUUID();
-        await query(`INSERT INTO users (uid, email, password, role, tenant_id, tenant_type, tenant_name) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`, [uid, email, hashedPassword, role || 'Cybersecurity Analyst', tenantId, tenantType || 'Organization', tenantName || 'Default Tenant']);
-        const user = { uid, email, role: role || 'Cybersecurity Analyst', tenantId, tenantType: tenantType || 'Organization' };
+        const finalTenantId = tenant_id || crypto.randomUUID(); // From request or fallback
+        // As requested: INSERT INTO users (email, password, uid, tenant_id, role) VALUES ($1, $2, $3, $4, $5)
+        // We include id since the schema requires a UUID primary key without default specified in user prompt
+        await query(`INSERT INTO users (id, email, password, uid, tenant_id, role) 
+       VALUES ($1, $2, $3, $4, $5, $6)`, [crypto.randomUUID(), email, hashedPassword, uid, finalTenantId, assignedRole]);
+        const user = { uid, email, role: assignedRole, tenant_id: finalTenantId };
         const token = jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ success: true, data: { token, user } });
+        res.status(200).json({ success: true, token, user, message: "Registration successful" });
     }
     catch (error) {
         console.error('[Auth Register Error]:', error);
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 // Login logic
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {
-        return res.status(400).json({ success: false, error: 'Email and password are required' });
+        return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
     try {
-        const { rows } = await query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email]);
+        // Exact requested query
+        const { rows } = await query('SELECT * FROM users WHERE email = $1', [email]);
         if (rows.length === 0) {
-            return res.status(401).json({ success: false, error: 'Invalid credentials' });
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
         const dbUser = rows[0];
         const isMatch = await bcrypt.compare(password, dbUser.password);
         if (!isMatch) {
-            return res.status(401).json({ success: false, error: 'Invalid credentials' });
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
         const user = {
             uid: dbUser.uid,
             email: dbUser.email,
             role: dbUser.role,
-            tenantId: dbUser.tenant_id,
-            tenantType: dbUser.tenant_type
+            tenant_id: dbUser.tenant_id
         };
         const token = jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ success: true, data: { token, user } });
+        res.status(200).json({ success: true, message: "Login successful", token, user });
     }
     catch (error) {
         console.error('[Auth Login Error]:', error);
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 // Get current user

@@ -76,7 +76,7 @@ async function startServer() {
         if (fs.existsSync(path.join(distPath, 'index.html'))) {
             return next(); // Let the catch-all handle it
         }
-        res.send("Backend running");
+        res.send("OK");
     });
     // Catch-all for SPA
     app.get('*', (req, res) => {

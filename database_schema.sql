@@ -12,9 +12,11 @@ CREATE TABLE tenants (
 
 -- 2. Users Table
 CREATE TABLE users (
-    uid VARCHAR(128) PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL,
+    uid VARCHAR(128) NOT NULL UNIQUE,
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

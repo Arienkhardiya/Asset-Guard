@@ -21,7 +21,7 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    res.status(401).json({ error: 'Unauthorized: No token provided' });
+    res.status(401).json({ success: false, error: 'Unauthorized: No token provided' });
     return;
   }
 
@@ -29,10 +29,16 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     
     // Verify user still exists in DB
-    const { rows } = await query('SELECT uid, email, role, tenant_id, tenant_type FROM users WHERE uid = $1', [decoded.uid]);
+    const { rows } = await query(
+      `SELECT u.uid, u.email, u.role, u.tenant_id, t.type as tenant_type 
+       FROM users u 
+       LEFT JOIN tenants t ON u.tenant_id = t.id 
+       WHERE u.uid = $1`, 
+      [decoded.uid]
+    );
     
     if (rows.length === 0) {
-      res.status(401).json({ error: 'Unauthorized: User no longer exists' });
+      res.status(401).json({ success: false, error: 'Unauthorized: User no longer exists' });
       return;
     }
 
@@ -49,14 +55,14 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
     next();
   } catch (error: any) {
     logger.error('JWT Verification failed', { error: error.message });
-    res.status(403).json({ error: 'Forbidden: Invalid or expired token' });
+    res.status(403).json({ success: false, error: 'Forbidden: Invalid or expired token' });
   }
 };
 
 export const requireRole = (roles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user || !roles.includes(req.user.role)) {
-      res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+      res.status(403).json({ success: false, error: 'Forbidden: Insufficient permissions' });
       return;
     }
     next();

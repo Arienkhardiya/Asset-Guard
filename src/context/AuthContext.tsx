@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (res.ok) {
             const result = await safeJson(res);
             if (result.success) {
-              setUserData(result.data as UserData);
+              setUserData(result.data || result.user || result as unknown as UserData);
             } else {
               throw new Error('Failed to fetch user data');
             }
@@ -69,9 +69,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       
       const result = await safeJson(res);
-      if (result.success && result.data?.token) {
-        localStorage.setItem('token', result.data.token);
-        setUserData(result.data.user);
+      if (result.success && result.token) {
+        localStorage.setItem('token', result.token);
+        setUserData(result.user);
         
         // Audit log
         try {
@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${result.data.token}`
+              'Authorization': `Bearer ${result.token}`
             },
             body: JSON.stringify({
               action: 'LOGIN',
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('Audit log failed', e);
         }
       } else {
-        throw new Error(result.error || 'Login failed');
+        throw new Error(result.message || result.error || 'Login failed');
       }
     } catch (error) {
       console.error("Login failed:", error);
