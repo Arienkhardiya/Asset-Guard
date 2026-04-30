@@ -10,20 +10,12 @@ const SALT_ROUNDS = 10;
 
 const DEMO_USERS = [
   {
-    id: "demo-1",
-    uid: "demo-1",
-    email: "admin@demo.com",
-    password: "123456",
+    id: "demo-admin-id",
+    uid: "demo-admin-uid",
+    email: "demo@assetguard.ai",
+    password: "demo123",
     role: "admin",
-    tenantId: "ipl"
-  },
-  {
-    id: "demo-2",
-    uid: "demo-2",
-    email: "analyst@demo.com",
-    password: "123456",
-    role: "analyst",
-    tenantId: "ipl"
+    tenantId: "demo-tenant"
   }
 ];
 
@@ -35,51 +27,61 @@ router.post('/register', async (req, res) => {
   });
 });
 
-// Login logic
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 🔥 DEMO MODE CHECK
-    const user = DEMO_USERS.find(
+    // 1. 🔥 DEMO MODE CHECK (ALWAYS WORKS)
+    const demoUser = DEMO_USERS.find(
       u => u.email === email && u.password === password
     );
 
-    if (user) {
+    if (demoUser) {
       const token = jwt.sign(
         {
-          id: user.id,
-          uid: user.uid,
-          email: user.email,
-          role: user.role,
-          tenantId: user.tenantId
+          id: demoUser.id,
+          uid: demoUser.uid,
+          email: demoUser.email,
+          role: demoUser.role,
+          tenantId: demoUser.tenantId
         },
         process.env.JWT_SECRET as string,
-        { expiresIn: "1d" }
+        { expiresIn: "7d" }
       );
 
-      return res.json({
+      return res.status(200).json({
         success: true,
         token,
-        user
+        user: demoUser
       });
     }
 
-    // fallback (optional real DB)
-    const { rows } = await query('SELECT * FROM users WHERE email = $1', [email]);
-    if (rows.length > 0) {
-      const dbUser = rows[0];
-      const isMatch = await bcrypt.compare(password, dbUser.password);
-      if (isMatch) {
-        const payload = {
-          uid: dbUser.uid,
-          email: dbUser.email,
-          role: dbUser.role,
-          tenantId: dbUser.tenant_id
-        };
-        const token = jwt.sign(payload, process.env.JWT_SECRET as string, { expiresIn: '24h' });
-        return res.status(200).json({ success: true, message: "Login successful", token, user: payload });
+    // 2. REAL DB ATTEMPT
+    try {
+      const { rows } = await query('SELECT * FROM users WHERE email = $1', [email]);
+      if (rows.length > 0) {
+        const dbUser = rows[0];
+        const isMatch = await bcrypt.compare(password, dbUser.password);
+        if (isMatch) {
+          const payload = {
+            id: dbUser.id || dbUser.uid,
+            uid: dbUser.uid,
+            email: dbUser.email,
+            role: dbUser.role,
+            tenantId: dbUser.tenant_id
+          };
+          const token = jwt.sign(payload, process.env.JWT_SECRET as string, { expiresIn: '7d' });
+          return res.status(200).json({ 
+            success: true, 
+            message: "Login successful", 
+            token, 
+            user: payload 
+          });
+        }
       }
+    } catch (dbErr) {
+      console.error("[DB Login Error - Falling back]:", dbErr);
+      // If DB fails, we still checked demo above, so we just continue to 401
     }
 
     return res.status(401).json({
@@ -87,10 +89,10 @@ router.post('/login', async (req, res) => {
       message: "Invalid credentials"
     });
   } catch (err: any) {
-    console.error(err);
+    console.error("[Global Login Error]:", err);
     return res.status(500).json({
       success: false,
-      message: "Server error"
+      message: "Authentication server error"
     });
   }
 });

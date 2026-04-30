@@ -7,20 +7,12 @@ const router = express.Router();
 const SALT_ROUNDS = 10;
 const DEMO_USERS = [
     {
-        id: "demo-1",
-        uid: "demo-1",
-        email: "admin@demo.com",
-        password: "123456",
+        id: "demo-admin-id",
+        uid: "demo-admin-uid",
+        email: "demo@assetguard.ai",
+        password: "demo123",
         role: "admin",
-        tenantId: "ipl"
-    },
-    {
-        id: "demo-2",
-        uid: "demo-2",
-        email: "analyst@demo.com",
-        password: "123456",
-        role: "analyst",
-        tenantId: "ipl"
+        tenantId: "demo-tenant"
     }
 ];
 // Register logic
@@ -30,41 +22,52 @@ router.post('/register', async (req, res) => {
         message: "Demo mode active. Use demo login (admin@demo.com / 123456)."
     });
 });
-// Login logic
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        // 🔥 DEMO MODE CHECK
-        const user = DEMO_USERS.find(u => u.email === email && u.password === password);
-        if (user) {
+        // 1. 🔥 DEMO MODE CHECK (ALWAYS WORKS)
+        const demoUser = DEMO_USERS.find(u => u.email === email && u.password === password);
+        if (demoUser) {
             const token = jwt.sign({
-                id: user.id,
-                uid: user.uid,
-                email: user.email,
-                role: user.role,
-                tenantId: user.tenantId
-            }, process.env.JWT_SECRET, { expiresIn: "1d" });
-            return res.json({
+                id: demoUser.id,
+                uid: demoUser.uid,
+                email: demoUser.email,
+                role: demoUser.role,
+                tenantId: demoUser.tenantId
+            }, process.env.JWT_SECRET, { expiresIn: "7d" });
+            return res.status(200).json({
                 success: true,
                 token,
-                user
+                user: demoUser
             });
         }
-        // fallback (optional real DB)
-        const { rows } = await query('SELECT * FROM users WHERE email = $1', [email]);
-        if (rows.length > 0) {
-            const dbUser = rows[0];
-            const isMatch = await bcrypt.compare(password, dbUser.password);
-            if (isMatch) {
-                const payload = {
-                    uid: dbUser.uid,
-                    email: dbUser.email,
-                    role: dbUser.role,
-                    tenantId: dbUser.tenant_id
-                };
-                const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
-                return res.status(200).json({ success: true, message: "Login successful", token, user: payload });
+        // 2. REAL DB ATTEMPT
+        try {
+            const { rows } = await query('SELECT * FROM users WHERE email = $1', [email]);
+            if (rows.length > 0) {
+                const dbUser = rows[0];
+                const isMatch = await bcrypt.compare(password, dbUser.password);
+                if (isMatch) {
+                    const payload = {
+                        id: dbUser.id || dbUser.uid,
+                        uid: dbUser.uid,
+                        email: dbUser.email,
+                        role: dbUser.role,
+                        tenantId: dbUser.tenant_id
+                    };
+                    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+                    return res.status(200).json({
+                        success: true,
+                        message: "Login successful",
+                        token,
+                        user: payload
+                    });
+                }
             }
+        }
+        catch (dbErr) {
+            console.error("[DB Login Error - Falling back]:", dbErr);
+            // If DB fails, we still checked demo above, so we just continue to 401
         }
         return res.status(401).json({
             success: false,
@@ -72,10 +75,10 @@ router.post('/login', async (req, res) => {
         });
     }
     catch (err) {
-        console.error(err);
+        console.error("[Global Login Error]:", err);
         return res.status(500).json({
             success: false,
-            message: "Server error"
+            message: "Authentication server error"
         });
     }
 });
