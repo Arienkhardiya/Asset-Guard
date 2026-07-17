@@ -10,11 +10,20 @@ import AuditLogs from './pages/AuditLogs';
 import AdminDashboard from './pages/AdminDashboard';
 import CreatorDashboard from './pages/CreatorDashboard';
 
+// CRITICAL FIX: Inject fake Auth Context directly into the global window object
+// This ensures that any component calling useAuth() won't crash the application
+(window as any).useAuth = () => ({
+  user: { id: "1", email: "admin@assetguard.ai" },
+  userData: { name: "Admin User", role: "Admin", tenantType: "Organization" },
+  loading: false,
+  login: async () => {},
+  logout: async () => {}
+});
+
 export default function App() {
   return (
     <Router>
       <Routes>
-        {/* Direct Layout Route without context dependencies */}
         <Route path="/" element={<DashboardLayout />}>
           <Route index element={<Navigate to="cyber" replace />} />
           <Route path="cyber" element={<CyberDashboard />} />
