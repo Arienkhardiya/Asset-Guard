@@ -12,64 +12,47 @@ import RemediationCenter from './pages/RemediationCenter';
 import CreatorDashboard from './pages/CreatorDashboard';
 import LiveMonitor from './pages/LiveMonitor';
 
-// Fake Auth Provider to stop inner pages from crashing
+// Universal Fake Auth to feed all inner components what they expect
 import { AuthContext } from './context/AuthContext';
-const MockAuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const mockValue = {
-    user: { id: "1", email: "admin@assetguard.ai" },
-    userData: { name: "Admin User", role: "Admin", tenantType: "Organization" },
-    loading: false,
-    login: async () => {},
-    logout: async () => {}
-  };
-  return <AuthContext.Provider value={mockValue}>{children}</AuthContext.Provider>;
-};
-
-function RootRouter() {
+const MockAuthProvider = ({ children }: any) => {
   return (
-    <SecurityProvider>
-      <ScanProvider>
-        <DashboardLayout />
-      </ScanProvider>
-    </SecurityProvider>
+    <AuthContext.Provider value={{
+      user: { id: "1", email: "admin@assetguard.ai" },
+      userData: { name: "Admin User", role: "Admin", tenantType: "Organization" },
+      loading: false,
+      login: async () => {},
+      logout: async () => {}
+    } as any}>
+      {children}
+    </AuthContext.Provider>
   );
-}
+};
 
 export default function App() {
   return (
     <MockAuthProvider>
-      <Router>
-        <Routes>
-          {/* Main Application Layout */}
-          <Route path="/" element={<RootRouter />}>
-            <Route index element={<Navigate to="cyber" replace />} />
-            <Route path="cyber" element={<CyberDashboard />} />
-            <Route path="live-monitor" element={<LiveMonitor />} />
-            <Route path="legal" element={<LegalDashboard />} />
-            <Route path="business" element={<BusinessDashboard />} />
-            <Route path="remediation" element={<RemediationCenter />} />
-            <Route path="logs" element={<AuditLogs />} />
-            <Route path="admin" element={<AdminDashboard />} />
-          </Route>
-
-          {/* Creator Route (Standalone) */}
-          <Route 
-            path="/creator" 
-            element={
-              <SecurityProvider>
-                <ScanProvider>
-                  <CreatorDashboard />
-                </ScanProvider>
-              </SecurityProvider>
-            } 
-          />
-
-          {/* Fallback routes */}
-          <Route path="/login" element={<Navigate to="/" replace />} />
-          <Route path="/dashboard" element={<Navigate to="/" replace />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
+      <SecurityProvider>
+        <ScanProvider>
+          <Router>
+            <Routes>
+              {/* Force base path straight into the layout layout */}
+              <Route path="/" element={<DashboardLayout />}>
+                <Route index element={<Navigate to="cyber" replace />} />
+                <Route path="cyber" element={<CyberDashboard />} />
+                <Route path="live-monitor" element={<LiveMonitor />} />
+                <Route path="legal" element={<LegalDashboard />} />
+                <Route path="business" element={<BusinessDashboard />} />
+                <Route path="remediation" element={<RemediationCenter />} />
+                <Route path="logs" element={<AuditLogs />} />
+                <Route path="admin" element={<AdminDashboard />} />
+              </Route>
+              
+              <Route path="/creator" element={<CreatorDashboard />} />
+              <Route path="*" element={<Navigate to="/cyber" replace />} />
+            </Routes>
+          </Router>
+        </ScanProvider>
+      </SecurityProvider>
     </MockAuthProvider>
   );
 }
