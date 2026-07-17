@@ -1,39 +1,43 @@
-import React, { createContext } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ScanProvider } from './context/ScanContext';
+import { SecurityProvider } from './context/SecurityContext';
+import DashboardLayout from './layouts/DashboardLayout';
 import CyberDashboard from './pages/CyberDashboard';
-
-// 1. Create universal dummy contexts inline so they cannot break the build
-const DummyContext = createContext<any>({
-  user: { id: "1", email: "admin@assetguard.ai" },
-  userData: { name: "Admin User", role: "Admin", tenantType: "Organization" },
-  loading: false,
-  scans: [],
-  securityData: {},
-  startScan: async () => {},
-  login: async () => {},
-  logout: async () => {}
-});
-
-// 2. Intercept React's context lookup completely to feed all child hooks (useAuth, useScan, etc.)
-const ReactWithMock = React as any;
-ReactWithMock.createContext = () => DummyContext;
+import LiveMonitor from './pages/LiveMonitor';
+import LegalDashboard from './pages/LegalDashboard';
+import BusinessDashboard from './pages/BusinessDashboard';
+import RemediationCenter from './pages/RemediationCenter';
+import AuditLogs from './pages/AuditLogs';
+import AdminDashboard from './pages/AdminDashboard';
+import CreatorDashboard from './pages/CreatorDashboard';
 
 export default function App() {
   return (
-    <DummyContext.Provider value={{
-      user: { id: "1", email: "admin@assetguard.ai" },
-      userData: { name: "Admin User", role: "Admin", tenantType: "Organization" },
-      loading: false,
-      scans: [],
-      securityData: {},
-      startScan: async () => {}
-    }}>
-      <Router>
-        <Routes>
-          <Route path="/" element={<CyberDashboard />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-    </DummyContext.Provider>
+    <AuthProvider>
+      <SecurityProvider>
+        <ScanProvider>
+          <Router>
+            <Routes>
+              {/* बिना किसी लॉगिन वॉल या ProtectedRoute के सीधे डैशबोर्ड लेआउट लोड करें */}
+              <Route path="/" element={<DashboardLayout />}>
+                <Route index element={<Navigate to="cyber" replace />} />
+                <Route path="cyber" element={<CyberDashboard />} />
+                <Route path="live-monitor" element={<LiveMonitor />} />
+                <Route path="legal" element={<LegalDashboard />} />
+                <Route path="business" element={<BusinessDashboard />} />
+                <Route path="remediation" element={<RemediationCenter />} />
+                <Route path="logs" element={<AuditLogs />} />
+                <Route path="admin" element={<AdminDashboard />} />
+              </Route>
+              
+              <Route path="/creator" element={<CreatorDashboard />} />
+              <Route path="*" element={<Navigate to="/cyber" replace />} />
+            </Routes>
+          </Router>
+        </ScanProvider>
+      </SecurityProvider>
+    </AuthProvider>
   );
 }
